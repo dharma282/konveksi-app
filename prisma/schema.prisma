@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(TAILOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relation to projects they are assigned to
+  assignedProjects TailorProject[]
+}
+
+enum Role {
+  ADMIN
+  TAILOR
+  OWNER
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  clientName    String
+  projectName   String
+  projectValue  Float
+  duration      Int // in days
+  startDate     DateTime @default(now())
+  endDate       DateTime
+  status        ProjectStatus @default(PENDING)
+  itemsTarget   Int // Total items to be produced
+  itemsCompleted Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  assignedTailors TailorProject[]
+  materialsUsed   ProjectMaterial[]
+  rab             RAB?
+  hpp             HPP?
+}
+
+enum ProjectStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  barcode     String   @unique
+  unit        UnitType
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  stock           Stock?
+  projects        ProjectMaterial[]
+}
+
+enum UnitType {
+  YARD // Kain
+  PCS  // Benang, Kancing, etc.
+}
+
+model Stock {
+  id          String   @id @default(cuid())
+  quantity    Float
+  materialId  String   @unique
+  material    Material @relation(fields: [materialId], references: [id])
+  lastUpdated DateTime @updatedAt
+}
+
+// Join table for Tailors and Projects
+model TailorProject {
+  id              String   @id @default(cuid())
+  tailorId        String
+  projectId       String
+  itemsCompleted  Int      @default(0)
+  assignedAt      DateTime @default(now())
+
+  tailor          User     @relation(fields: [tailorId], references: [id])
+  project         Project  @relation(fields: [projectId], references: [id])
+
+  @@unique([tailorId, projectId])
+}
+
+// Join table for Materials and Projects
+model ProjectMaterial {
+  id          String   @id @default(cuid())
+  projectId   String
+  materialId  String
+  quantityUsed Float
+
+  project     Project  @relation(fields: [projectId], references: [id])
+  material    Material @relation(fields: [materialId], references: [id])
+
+  @@unique([projectId, materialId])
+}
+
+model RAB {
+  id                String   @id @default(cuid())
+  projectId         String   @unique
+  totalMaterialCost Float
+  totalLaborCost    Float
+  totalCost         Float
+  createdAt         DateTime @default(now())
+
+  project           Project  @relation(fields: [projectId], references: [id])
+}
+
+model HPP {
+  id                String   @id @default(cuid())
+  projectId         String   @unique
+  actualMaterialCost Float
+  actualLaborCost    Float
+  actualTotalCost    Float
+  createdAt         DateTime @default(now())
+
+  project           Project  @relation(fields: [projectId], references: [id])
+}
